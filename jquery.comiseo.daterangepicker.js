@@ -50,6 +50,9 @@
 			onClose: null, // @deprecated callback that executes when the dropdown closes
 			onChange: null, // @deprecated callback that executes when the date range changes
 			onClear: null, // @deprecated callback that executes when the clear button is used
+			appendTo: 'body', // element to append the range picker to
+			legendSelector: null,
+			inline: false, // show as dropdown or inline
 			datepickerOptions: { // object containing datepicker options. See http://api.jqueryui.com/datepicker/#options
 				numberOfMonths: 3,
 //				showCurrentAtPos: 1 // bug; use maxDate instead
@@ -92,6 +95,12 @@
 
 		widget: function() {
 			return this._dateRangePicker.getContainer();
+		},
+		datepicker_option: function(key, value) {
+			return this._dateRangePicker.datepicker_option(key, value);
+		},
+		refresh: function() {
+			this._dateRangePicker.refresh();
 		}
 	});
 
@@ -215,14 +224,19 @@
 			range = {start: null, end: null}; // selected range
 
 		function init() {
+			// Building the jquery ui datepicker on a div will turn it into inline mode
 			$self = $('<div></div>', {'class': classnameContext + '-calendar ui-widget-content'});
-
 			$self.datepicker($.extend({}, options.datepickerOptions, {beforeShowDay: beforeShowDay, onSelect: onSelectDay}));
+			// $self.datepicker();
 			updateAtMidnight();
 		}
 
 		function enforceOptions() {
 			$self.datepicker('option', $.extend({}, options.datepickerOptions, {beforeShowDay: beforeShowDay, onSelect: onSelectDay}));
+		}
+
+		function datepicker_option(key, value) {
+			$self.datepicker('option', key, value);
 		}
 
 		// called when a day is selected
@@ -277,7 +291,7 @@
 
 		function refresh() {
 			$self.datepicker('refresh');
-			$self.datepicker('setDate', null); // clear the selected date
+			// $self.datepicker('setDate', null); // clear the selected date
 		}
 
 		function reset() {
@@ -293,7 +307,8 @@
 			setRange: function(value) { range = value; refresh(); },
 			refresh: refresh,
 			reset: reset,
-			enforceOptions: enforceOptions
+			enforceOptions: enforceOptions,
+			datepicker_option: datepicker_option
 		};
 	}
 
@@ -312,10 +327,10 @@
 
 		function init() {
 			$self = $('<div></div>')
-				.addClass(classnameContext + '-buttonpanel');
+				.addClass(classnameContext + '-buttonpanel btn-group');
 
 			if (options.applyButtonText) {
-				applyButton = $('<button type="button" class="ui-priority-primary"></button>')
+				applyButton = $('<button type="button" class="btn btn-lg ui-priority-primary"></button>')
 					.text(options.applyButtonText)
 					.button();
 
@@ -323,7 +338,7 @@
 			}
 
 			if (options.clearButtonText) {
-				clearButton = $('<button type="button" class="ui-priority-secondary"></button>')
+				clearButton = $('<button type="button" class="btn btn-lg ui-priority-secondary"></button>')
 					.text(options.clearButtonText)
 					.button();
 
@@ -331,7 +346,7 @@
 			}
 
 			if (options.cancelButtonText) {
-				cancelButton = $('<button type="button" class="ui-priority-secondary"></button>')
+				cancelButton = $('<button type="button" class="btn btn-lg ui-priority-secondary"></button>')
 					.text(options.cancelButtonText)
 					.button();
 
@@ -386,11 +401,11 @@
 	 * @param {Object} options
 	 */
 	function buildDateRangePicker($originalElement, instance, options) {
-		var classname = 'comiseo-daterangepicker',
+		var classname = 'ui-daterangepicker',
 			$container, // the dropdown
 			$mask, // ui helper (z-index fix)
-			triggerButton,
-			presetsMenu,
+			// triggerButton,
+			// presetsMenu,
 			calendar,
 			buttonPanel,
 			isOpen = false,
@@ -404,8 +419,8 @@
 			vSide = null;
 
 		function init() {
-			triggerButton = buildTriggerButton($originalElement, classname, options);
-			presetsMenu = buildPresetsMenu(classname, options, usePreset);
+			//triggerButton = buildTriggerButton($originalElement, classname, options);
+			//presetsMenu = buildPresetsMenu(classname, options, usePreset);
 			calendar = buildCalendar(classname, options);
 			autoFit.numberOfMonths = options.datepickerOptions.numberOfMonths; // save initial option!
 			if (autoFit.numberOfMonths instanceof Array) { // not implemented
@@ -413,11 +428,13 @@
 			}
 			buttonPanel = buildButtonPanel(classname, options, {
 				onApply: function (event) {
-					close(event);
 					setRange(null, event);
+					instance._trigger('apply', event, {range: getRange(), instance: instance})
+					clearRange(event);
 				},
 				onClear: function (event) {
-					close(event);
+					setRange(null, event);
+					instance._trigger('clear', event, {range: getRange(), instance: instance})
 					clearRange(event);
 				},
 				onCancel: function (event) {
@@ -433,58 +450,78 @@
 		}
 
 		function render() {
-			$container = $('<div></div>', {'class': classname + ' ' + classname + '-' + sides[hSide] + ' ui-widget ui-widget-content ui-corner-all ui-front'})
-				.append($('<div></div>', {'class': classname + '-main ui-widget-content'})
-					.append(presetsMenu.getElement())
-					.append(calendar.getElement()))
-				.append($('<div class="ui-helper-clearfix"></div>')
-					.append(buttonPanel.getElement()))
-				.hide();
-			$originalElement.hide().after(triggerButton.getElement());
-			$mask = $('<div></div>', {'class': 'ui-front ' + classname + '-mask'}).hide();
-			$('body').append($mask).append($container);
+
+            // $container = $('<div></div>', {'class': classname + ' ' + classname + '-' + sides[hSide] + ' ui-widget ui-widget-content ui-corner-all ui-front'}).css({position: options.inline ? 'static' : 'absolute'})
+             //    .append($('<div></div>', {'class': classname + '-main ui-widget-content'})
+			// 	.append(presetsMenu.getElement())
+			// 	.append(calendar.getElement()))
+             //    .append($('<div class="ui-helper-clearfix"></div>')
+			// 	.append(buttonPanel.getElement()))
+			// 	.hide();
+            //
+			// $originalElement.hide().after(triggerButton.getElement());
+			//
+			// $mask = (options.inline) ? $('<span />') : $('<div></div>', {'class': 'ui-front ' + classname + '-mask'}).hide();
+			//
+			// $(options.appendTo).append($mask).append($container);
+
+            $container = $('<div></div>', {'class': classname + ' ' + classname + '-' + sides[hSide] + ' ui-widget ui-widget-content ui-corner-all ui-front'}).css({position: options.inline ? 'static' : 'absolute'})
+                .append($('<div></div>', {'class': classname + '-main ui-widget-content'})
+				// .append(presetsMenu.getElement())
+				.append(calendar.getElement()))
+                .append($('<div class="ui-helper-clearfix"></div>')
+				.append($(options.legendSelector))
+				.append(buttonPanel.getElement()));
+
+            // Hide the original input element
+            $originalElement.hide();
+
+			$mask = $('<div></div>', {'class': 'ui-front ' + classname + '-mask'}).append($container);
+
+			$(options.appendTo).append($mask);
 		}
 
 		// auto adjusts the number of months in the date picker
 		function autoFit() {
-			if (options.autoFitCalendars) {
-				var maxWidth = $(window).width(),
-					initialWidth = $container.outerWidth(true),
-					$calendar = calendar.getElement(),
-					numberOfMonths = $calendar.datepicker('option', 'numberOfMonths'),
-					initialNumberOfMonths = numberOfMonths;
-
-				if (initialWidth > maxWidth) {
-					while (numberOfMonths > 1 && $container.outerWidth(true) > maxWidth) {
-						$calendar.datepicker('option', 'numberOfMonths', --numberOfMonths);
-					}
-					if (numberOfMonths !== initialNumberOfMonths) {
-						autoFit.monthWidth = (initialWidth - $container.outerWidth(true)) / (initialNumberOfMonths - numberOfMonths);
-					}
-				} else {
-					while (numberOfMonths < autoFit.numberOfMonths && (maxWidth - $container.outerWidth(true)) >= autoFit.monthWidth) {
-						$calendar.datepicker('option', 'numberOfMonths', ++numberOfMonths);
-					}
-				}
-				reposition();
-				autoFitNeeded = false;
-			}
+			// if (options.autoFitCalendars) {
+			// 	var maxWidth = $(options.appendTo).width(),
+			// 		initialWidth = $container.outerWidth(true),
+			// 		$calendar = calendar.getElement(),
+			// 		numberOfMonths = $calendar.datepicker('option', 'numberOfMonths'),
+			// 		initialNumberOfMonths = numberOfMonths;
+            //
+			// 	if (initialWidth > maxWidth) {
+			// 		while (numberOfMonths > 1 && $container.outerWidth(true) > maxWidth) {
+			// 			$calendar.datepicker('option', 'numberOfMonths', --numberOfMonths);
+			// 		}
+			// 		if (numberOfMonths !== initialNumberOfMonths) {
+			// 			autoFit.monthWidth = (initialWidth - $container.outerWidth(true)) / (initialNumberOfMonths - numberOfMonths);
+			// 		}
+			// 	} else {
+			// 		while (numberOfMonths < autoFit.numberOfMonths && (maxWidth - $container.outerWidth(true)) >= autoFit.monthWidth) {
+			// 			$calendar.datepicker('option', 'numberOfMonths', ++numberOfMonths);
+			// 		}
+			// 	}
+			// 	reposition();
+			// 	autoFitNeeded = false;
+			// }
 		}
 
 		function destroy() {
 			$container.remove();
-			triggerButton.getElement().remove();
+			$mask.remove();
+			// triggerButton.getElement().remove();
 			$originalElement.show();
 		}
 
 		function bindEvents() {
-			triggerButton.getElement().click(toggle);
-			triggerButton.getElement().keydown(keyPressTriggerOpenOrClose);
-			$mask.click(function(event) {
-				close(event);
-				reset();
-			});
-			$(window).resize(function() { isOpen ? autoFit() : autoFitNeeded = true; });
+			// triggerButton.getElement().click(toggle);
+			// triggerButton.getElement().keydown(keyPressTriggerOpenOrClose);
+			// $mask.click(function(event) {
+			// 	close(event);
+			// 	reset();
+			// });
+			// $(window).resize(function() { isOpen ? autoFit() : autoFitNeeded = true; });
 		}
 
 		function formatRangeForDisplay(range) {
@@ -519,7 +556,7 @@
 		function reset() {
 			var range = getRange();
 			if (range) {
-				triggerButton.setLabel(formatRangeForDisplay(range));
+				//triggerButton.setLabel(formatRangeForDisplay(range));
 				calendar.setRange(range);
 			} else {
 				calendar.reset();
@@ -535,7 +572,7 @@
 				range.end = range.start;
 			}
 			value && calendar.setRange(range);
-			triggerButton.setLabel(formatRangeForDisplay(range));
+			//triggerButton.setLabel(formatRangeForDisplay(range));
 			$originalElement.val(formatRange(range)).change();
 			if (options.onChange) {
 				options.onChange();
@@ -548,12 +585,12 @@
 		}
 
 		function clearRange(event) {
-			triggerButton.reset();
+			//triggerButton.reset();
 			calendar.reset();
 			if (options.onClear) {
 				options.onClear();
 			}
-			instance._trigger('clear', event, {instance: instance});
+			// instance._trigger('clear', event, {instance: instance});
 		}
 
 		// callback - used when the user clicks a preset range
@@ -562,7 +599,7 @@
 				start = $this.data('dateStart')().startOf('day').toDate(),
 				end = $this.data('dateEnd')().startOf('day').toDate();
 			calendar.setRange({ start: start, end: end });
-			if (options.applyOnMenuSelect) {
+			if (options.applyOnMenuSelect || options.inline) {
 				close(event);
 				setRange(null, event);
 			}
@@ -571,47 +608,47 @@
 
 		// adjusts dropdown's position taking into account the available space
 		function reposition() {
-			$container.position({
-				my: 'left top',
-				at: 'left bottom' + (options.verticalOffset < 0 ? options.verticalOffset : '+' + options.verticalOffset),
-				of: triggerButton.getElement(),
-				collision : 'flipfit flipfit',
-				using: function(coords, feedback) {
-					var containerCenterX = feedback.element.left + feedback.element.width / 2,
-						triggerButtonCenterX = feedback.target.left + feedback.target.width / 2,
-						prevHSide = hSide,
-						last,
-						containerCenterY = feedback.element.top + feedback.element.height / 2,
-						triggerButtonCenterY = feedback.target.top + feedback.target.height / 2,
-						prevVSide = vSide,
-						vFit; // is the container fit vertically
-
-					hSide = (containerCenterX > triggerButtonCenterX) ? RIGHT : LEFT;
-					if (hSide !== prevHSide) {
-						if (options.mirrorOnCollision) {
-							last = (hSide === LEFT) ? presetsMenu : calendar;
-							$container.children().first().append(last.getElement());
-						}
-						$container.removeClass(classname + '-' + sides[prevHSide]);
-						$container.addClass(classname + '-' + sides[hSide]);
-					}
-					$container.css({
-						left: coords.left,
-						top: coords.top
-					});
-
-					vSide = (containerCenterY > triggerButtonCenterY) ? BOTTOM : TOP;
-					if (vSide !== prevVSide) {
-						if (prevVSide !== null) {
-							triggerButton.getElement().removeClass(classname + '-' + sides[prevVSide]);
-						}
-						triggerButton.getElement().addClass(classname + '-' + sides[vSide]);
-					}
-					vFit = vSide === BOTTOM && feedback.element.top - feedback.target.top !== feedback.target.height + options.verticalOffset
-						|| vSide === TOP && feedback.target.top - feedback.element.top !== feedback.element.height + options.verticalOffset;
-					triggerButton.getElement().toggleClass(classname + '-vfit', vFit);
-				}
-			});
+			// $container.position({
+			// 	my: 'left top',
+			// 	at: 'left bottom' + (options.verticalOffset < 0 ? options.verticalOffset : '+' + options.verticalOffset),
+			// 	of: triggerButton.getElement(),
+			// 	collision : 'flipfit flipfit',
+			// 	using: function(coords, feedback) {
+			// 		var containerCenterX = feedback.element.left + feedback.element.width / 2,
+			// 			triggerButtonCenterX = feedback.target.left + feedback.target.width / 2,
+			// 			prevHSide = hSide,
+			// 			last,
+			// 			containerCenterY = feedback.element.top + feedback.element.height / 2,
+			// 			triggerButtonCenterY = feedback.target.top + feedback.target.height / 2,
+			// 			prevVSide = vSide,
+			// 			vFit; // is the container fit vertically
+            //
+			// 		hSide = (containerCenterX > triggerButtonCenterX) ? RIGHT : LEFT;
+			// 		if (hSide !== prevHSide) {
+			// 			if (options.mirrorOnCollision) {
+			// 				last = (hSide === LEFT) ? presetsMenu : calendar;
+			// 				$container.children().first().append(last.getElement());
+			// 			}
+			// 			$container.removeClass(classname + '-' + sides[prevHSide]);
+			// 			$container.addClass(classname + '-' + sides[hSide]);
+			// 		}
+			// 		$container.css({
+			// 			left: coords.left,
+			// 			top: coords.top
+			// 		});
+            //
+			// 		vSide = (containerCenterY > triggerButtonCenterY) ? BOTTOM : TOP;
+			// 		if (vSide !== prevVSide) {
+			// 			if (prevVSide !== null) {
+			// 				triggerButton.getElement().removeClass(classname + '-' + sides[prevVSide]);
+			// 			}
+			// 			triggerButton.getElement().addClass(classname + '-' + sides[vSide]);
+			// 		}
+			// 		vFit = vSide === BOTTOM && feedback.element.top - feedback.target.top !== feedback.target.height + options.verticalOffset
+			// 			|| vSide === TOP && feedback.target.top - feedback.element.top !== feedback.element.height + options.verticalOffset;
+			// 		triggerButton.getElement().toggleClass(classname + '-vfit', vFit);
+			// 	}
+			// });
 		}
 
 		function killEvent(event) {
@@ -639,7 +676,7 @@
 
 		function open(event) {
 			if (!isOpen) {
-				triggerButton.getElement().addClass(classname + '-active');
+				//triggerButton.getElement().addClass(classname + '-active');
 				$mask.show();
 				isOpen = true;
 				autoFitNeeded && autoFit();
@@ -654,14 +691,16 @@
 		}
 
 		function close(event) {
-			if (isOpen) {
-				$container.hide();
-				$mask.hide();
-				triggerButton.getElement().removeClass(classname + '-active');
-				isOpen = false;
-			}
-			if (options.onClose) {
-				options.onClose();
+			if (!options.inline) {
+				if (isOpen) {
+					$container.hide();
+					$mask.hide();
+					//triggerButton.getElement().removeClass(classname + '-active');
+					isOpen = false;
+				}
+				if (options.onClose) {
+					options.onClose();
+				}
 			}
 			instance._trigger('close', event, {instance: instance});
 		}
@@ -681,16 +720,24 @@
 		}
 
 		function enforceOptions() {
-			var oldPresetsMenu = presetsMenu;
-			presetsMenu = buildPresetsMenu(classname, options, usePreset);
-			oldPresetsMenu.getElement().replaceWith(presetsMenu.getElement());
+			// var oldPresetsMenu = presetsMenu;
+			// presetsMenu = buildPresetsMenu(classname, options, usePreset);
+			// oldPresetsMenu.getElement().replaceWith(presetsMenu.getElement());
 			calendar.enforceOptions();
 			buttonPanel.enforceOptions();
-			triggerButton.enforceOptions();
+			//triggerButton.enforceOptions();
 			var range = getRange();
-			if (range) {
-				triggerButton.setLabel(formatRangeForDisplay(range));
-			}
+			// if (range) {
+			// 	triggerButton.setLabel(formatRangeForDisplay(range));
+			// }
+		}
+
+		function datepicker_option(key, value) {
+			calendar.datepicker_option(key, value);
+		}
+
+		function refresh() {
+			calendar.refresh();
 		}
 
 		init();
@@ -704,7 +751,9 @@
 			clearRange: clearRange,
 			reset: reset,
 			enforceOptions: enforceOptions,
-			getContainer: getContainer
+			getContainer: getContainer,
+			datepicker_option: datepicker_option,
+			refresh: refresh
 		};
 	}
 
